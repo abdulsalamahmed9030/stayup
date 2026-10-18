@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Pattern =
   | "diamond-grid"
@@ -47,6 +47,8 @@ export default function MouseJiggler() {
 
   const [wakeLockSupported, setWakeLockSupported] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
+  const [wakeLockMessage, setWakeLockMessage] = useState("Checking screen-awake support...");
+  const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
 
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [runSeconds, setRunSeconds] = useState(60);
@@ -136,12 +138,22 @@ export default function MouseJiggler() {
     restSeconds,
   ]);
 
-  // Detect browser capabilities.
+  // Detect browser capabilities and whether this page is in a secure context.
   useEffect(() => {
     setVibrationSupported(
       typeof navigator.vibrate === "function"
     );
-    setWakeLockSupported("wakeLock" in navigator);
+    const supported =
+      window.isSecureContext && "wakeLock" in navigator;
+    setWakeLockSupported(supported);
+
+    if (!window.isSecureContext) {
+      setWakeLockMessage("Screen awake requires HTTPS (or localhost for development).");
+    } else if (!("wakeLock" in navigator)) {
+      setWakeLockMessage("This browser does not support Screen Wake Lock. Try updated Chrome on Android.");
+    } else {
+      setWakeLockMessage("Trying to keep the screen awake...");
+    }
   }, []);
 
   // Vibration duration and interval are independently configurable.
@@ -188,71 +200,87 @@ export default function MouseJiggler() {
     vibrationSupported,
   ]);
 
-  // Request a screen wake lock while the page is visible.
-  useEffect(() => {
-    if (!wakeLockSupported) {
+  // Request a screen wake lock. A button in Settings can retry if the browser
+  // refuses the automatic request; the lock is reacquired when the page returns.
+  const requestScreenWakeLock = useCallback(async () => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return;
+
+    if (!window.isSecureContext) {
       setWakeLockActive(false);
+      setWakeLockMessage("Unavailable: open this site over HTTPS, or use localhost for development.");
       return;
     }
 
-    let disposed = false;
-    let sentinel: WakeLockSentinelLike | null = null;
+    if (!("wakeLock" in navigator)) {
+      setWakeLockSupported(false);
+      setWakeLockActive(false);
+      setWakeLockMessage("Unavailable: this browser does not support Screen Wake Lock.");
+      return;
+    }
 
-    const requestLock = async () => {
-      if (
-        disposed ||
-        document.visibilityState !== "visible"
-      ) {
-        return;
-      }
+    setWakeLockSupported(true);
 
-      try {
-        const lock = await navigator.wakeLock.request("screen");
+    if (document.visibilityState !== "visible") {
+      setWakeLockActive(false);
+      setWakeLockMessage("Keep this page open and visible to activate screen awake.");
+      return;
+    }
 
-        if (disposed) {
-          await lock.release();
-          return;
+    if (wakeLockRef.current) {
+      setWakeLockActive(true);
+      setWakeLockMessage("Screen wake lock is active.");
+      return;
+    }
+
+    try {
+      const lock = await navigator.wakeLock.request("screen");
+      const sentinel = lock as unknown as WakeLockSentinelLike;
+      wakeLockRef.current = sentinel;
+      setWakeLockActive(true);
+      setWakeLockMessage("Screen wake lock is active. Keep this page in the foreground.");
+
+      sentinel.addEventListener("release", () => {
+        if (wakeLockRef.current === sentinel) {
+          wakeLockRef.current = null;
+          setWakeLockActive(false);
+          setWakeLockMessage("The browser released the wake lock. Tap Enable / Retry to try again.");
         }
+      });
+    } catch (error) {
+      setWakeLockActive(false);
+      const reason = error instanceof Error ? error.name : "UnknownError";
+      setWakeLockMessage(
+        reason === "NotAllowedError"
+          ? "The browser denied the request. Keep this page visible and tap Enable / Retry Screen Awake."
+          : `Could not activate screen awake (${reason}). Check HTTPS, browser support, and battery restrictions.`
+      );
+    }
+  }, []);
 
-        sentinel = lock as unknown as WakeLockSentinelLike;
-        setWakeLockActive(true);
-
-        sentinel.addEventListener("release", () => {
-          if (!disposed) setWakeLockActive(false);
-        });
-      } catch {
-        setWakeLockActive(false);
-      }
-    };
+  useEffect(() => {
+    void requestScreenWakeLock();
 
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        void requestLock();
+        void requestScreenWakeLock();
       } else {
+        // Browsers release screen wake locks when a page becomes hidden.
+        // Clear our reference so the next visible event can request a new lock.
+        wakeLockRef.current = null;
         setWakeLockActive(false);
+        setWakeLockMessage("Paused while the page is hidden. It will retry when you return.");
       }
     };
 
-    void requestLock();
-
-    document.addEventListener(
-      "visibilitychange",
-      onVisibilityChange
-    );
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      disposed = true;
-
-      document.removeEventListener(
-        "visibilitychange",
-        onVisibilityChange
-      );
-
-      setWakeLockActive(false);
-
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      const sentinel = wakeLockRef.current;
+      wakeLockRef.current = null;
       if (sentinel) void sentinel.release();
     };
-  }, [wakeLockSupported]);
+  }, [requestScreenWakeLock]);
 
   // Countdown for automatic run/rest sessions.
   useEffect(() => {
@@ -394,6 +422,11 @@ export default function MouseJiggler() {
           <strong>{formatTime(secondsLeft)}</strong>
         )}
       </div>
+
+      <p className="brightness-notice">
+        For best results, keep your screen brightness at 20% or higher.
+        This website cannot change your device's actual brightness.
+      </p>
 
       <div className="center-controls">
         <button
@@ -691,13 +724,35 @@ export default function MouseJiggler() {
               <section className="setting-section">
                 <div className="setting-heading">
                   <div>
+                    <h3>Auto screen brightness</h3>
+                    <p className="muted">Unavailable in this browser</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="switch"
+                    role="switch"
+                    aria-label="Automatic device brightness (not supported)"
+                    aria-checked={false}
+                    disabled
+                    title="Web browsers cannot reliably change physical device brightness"
+                  >
+                    <span />
+                  </button>
+                </div>
+                <p className="muted schedule-note">
+                  A normal website cannot set your phone to 20% brightness or restore
+                  its previous brightness. Adjust brightness manually in your phone
+                  settings. Automatic brightness control would require a supported
+                  native mobile app.
+                </p>
+              </section>
+
+              <section className="setting-section">
+                <div className="setting-heading">
+                  <div>
                     <h3>Keep screen awake</h3>
                     <p className="muted">
-                      {wakeLockActive
-                        ? "Screen wake lock is active"
-                        : wakeLockSupported
-                          ? "Requesting screen wake lock when this page is visible"
-                          : "This browser does not support screen wake lock"}
+                      {wakeLockActive ? "Screen wake lock is active" : wakeLockMessage}
                     </p>
                   </div>
                   <span aria-hidden="true" style={{ fontSize: "20px" }}>
@@ -705,8 +760,17 @@ export default function MouseJiggler() {
                   </span>
                 </div>
 
+                <button
+                  type="button"
+                  className="bottom-settings"
+                  style={{ marginTop: "14px", marginLeft: 0 }}
+                  onClick={() => void requestScreenWakeLock()}
+                >
+                  {wakeLockActive ? "SCREEN AWAKE ACTIVE" : "ENABLE / RETRY SCREEN AWAKE"}
+                </button>
+
                 <p className="muted schedule-note">
-                  The app automatically requests that your screen stay on while this page is open and visible. Your browser or device may still release the lock because of battery settings, power-saving modes, or system policies. Keep this page in the foreground.
+                  Keep this page open and visible. Screen awake may stop if you switch apps, lock the phone, enable battery restrictions, or the browser releases the lock. This website cannot override Android system policies.
                 </p>
               </section>
 
