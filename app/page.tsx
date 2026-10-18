@@ -423,10 +423,12 @@ export default function MouseJiggler() {
         )}
       </div>
 
-      <p className="brightness-notice">
-        For best results, keep your screen brightness at 20% or higher.
-        This website cannot change your device's actual brightness.
-      </p>
+      {!isOn && (
+        <p className="brightness-notice">
+          For best results, keep your screen brightness at 20% or higher.
+          This website cannot change your device's actual brightness.
+        </p>
+      )}
 
       <div className="center-controls">
         <button
