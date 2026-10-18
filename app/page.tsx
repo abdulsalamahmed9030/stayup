@@ -730,4 +730,3 @@ export default function MouseJiggler() {
     </main>
   );
 }
- 
