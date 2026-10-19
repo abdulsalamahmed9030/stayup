@@ -2,6 +2,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import {
+  Power,
+  SlidersHorizontal,
+  SunMedium,
+  Layers,
+  Gauge,
+  X,
+  Check,
+  Smartphone,
+  Timer,
+  Eye,
+  Settings,
+  AlertCircle,
+} from "lucide-react";
 
 type Pattern =
   | "diamond-grid"
@@ -378,11 +393,23 @@ export default function MouseJiggler() {
       />
 
       <header className="top-bar">
-        <div className="top-brand" style={{ background: "#000000" }}>
-          <span className="brand-icon">S</span>
-          <div>
-            <h1>Stay Up</h1>
-            <p style={{ color: "#ffffff" }}>{isOn ? "STAY UP" : "STAY ACTIVE"}</p>
+        <div className="top-brand">
+          <div className="brand-icon-wrapper">
+            <Image
+              src="/apple-touch-icon.png"
+              alt="Stay Up"
+              width={38}
+              height={38}
+              className="brand-icon-img"
+              priority
+            />
+          </div>
+          <div className="brand-text">
+            <h1 className="brand-title">Stay Up</h1>
+            <div className="brand-subtitle">
+              <span className={`brand-status-dot ${isOn ? "active" : ""}`} />
+              <span>STAY ACTIVE</span>
+            </div>
           </div>
         </div>
 
@@ -393,9 +420,7 @@ export default function MouseJiggler() {
           aria-label="Open settings"
           aria-expanded={menuOpen}
         >
-          <span />
-          <span />
-          <span />
+          <SlidersHorizontal size={18} />
         </button>
       </header>
 
@@ -420,10 +445,15 @@ export default function MouseJiggler() {
       </div>
 
       {!isOn && (
-        <p className="brightness-notice">
-          For best results, keep your screen brightness at 20% or higher.
-          This website cannot change your device's actual brightness.
-        </p>
+        <div className="brightness-notice">
+          <SunMedium size={18} className="brightness-notice-icon" />
+          <div className="brightness-notice-content">
+            <span className="brightness-notice-title">Recommended: 20%+ Screen Brightness</span>
+            <span className="brightness-notice-sub">
+              Keeps optical sensors actively tracking without interruptions.
+            </span>
+          </div>
+        </div>
       )}
 
       <div className="center-controls">
@@ -436,32 +466,39 @@ export default function MouseJiggler() {
           aria-label={isOn ? "Stop pattern" : "Start pattern"}
           aria-pressed={isOn}
         >
-          <span className="power-symbol">⏻</span>
+          <Power size={24} strokeWidth={2.4} className="power-icon" />
           <span className="power-label">
             {isOn ? "STOP" : "START"}
           </span>
         </button>
 
-        <p className="center-caption">
-          {isOn
-            ? "Pattern is running"
-            : "Tap to start your pattern"}
-        </p>
+        <div className="center-caption">
+          <span className={`caption-status-dot ${isOn ? "active" : ""}`} />
+          <span>
+            {isOn
+              ? "Pattern is running"
+              : "Tap to start pattern"}
+          </span>
+        </div>
       </div>
 
       <footer className="bottom-bar">
-        <span>
-          {PATTERNS.find((item) => item.id === pattern)?.label}
+        <span className="bottom-info-pill">
+          <Layers size={13} />
+          <span>{PATTERNS.find((item) => item.id === pattern)?.label}</span>
         </span>
-        <span className="bottom-divider" />
-        <span>{speed}% SPEED</span>
+        <span className="bottom-info-pill">
+          <Gauge size={13} />
+          <span>{speed}% SPEED</span>
+        </span>
 
         <button
           type="button"
           className="bottom-settings"
           onClick={() => setMenuOpen(true)}
         >
-          SETTINGS
+          <Settings size={13} />
+          <span>SETTINGS</span>
         </button>
       </footer>
 
@@ -487,7 +524,7 @@ export default function MouseJiggler() {
                 onClick={() => setMenuOpen(false)}
                 aria-label="Close settings"
               >
-                ×
+                <X size={18} />
               </button>
             </div>
 
@@ -512,7 +549,7 @@ export default function MouseJiggler() {
                       <span>{item.label}</span>
 
                       {pattern === item.id && (
-                        <span className="selected-mark">✓</span>
+                        <Check size={14} className="selected-mark" />
                       )}
                     </button>
                   ))}
@@ -753,8 +790,14 @@ export default function MouseJiggler() {
                       {wakeLockActive ? "Screen wake lock is active" : wakeLockMessage}
                     </p>
                   </div>
-                  <span aria-hidden="true" style={{ fontSize: "20px" }}>
-                    {wakeLockActive ? "✓" : wakeLockSupported ? "◷" : "!"}
+                  <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center" }}>
+                    {wakeLockActive ? (
+                      <Check size={18} color="var(--accent)" />
+                    ) : wakeLockSupported ? (
+                      <Timer size={18} color="var(--muted)" />
+                    ) : (
+                      <AlertCircle size={18} color="#f87171" />
+                    )}
                   </span>
                 </div>
 
