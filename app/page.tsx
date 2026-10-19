@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Power,
   SlidersHorizontal,
@@ -16,6 +17,7 @@ import {
   Eye,
   Settings,
   AlertCircle,
+  ShieldCheck,
 } from "lucide-react";
 
 type Pattern =
@@ -814,6 +816,17 @@ export default function MouseJiggler() {
                   Keep this page open and visible. Screen awake may stop if you switch apps, lock the phone, enable battery restrictions, or the browser releases the lock. This website cannot override Android system policies.
                 </p>
               </section>
+
+              <div style={{ marginTop: "14px", marginBottom: "4px" }}>
+                <Link
+                  href="/admin"
+                  className="admin-drawer-link"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <ShieldCheck size={16} />
+                  <span>Admin Portal</span>
+                </Link>
+              </div>
 
               <p className="drawer-notice">
                 This app animates the displayed pattern. It
