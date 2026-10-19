@@ -3,10 +3,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Mouse Jiggler",
+  title: "Stay UP",
   description:
     "Full-screen optical pattern studio with automatic scheduling and screen wake-lock support.",
-  applicationName: "Mouse Jiggler",
+  applicationName: "Stay Up",
   robots: {
     index: false,
     follow: false,

@@ -378,15 +378,11 @@ export default function MouseJiggler() {
       />
 
       <header className="top-bar">
-        <div className="top-brand">
-          <span className="brand-icon">M</span>
+        <div className="top-brand" style={{ background: "#000000" }}>
+          <span className="brand-icon">S</span>
           <div>
-            <h1>Mouse Jiggler</h1>
-            <p>
-              {isOn
-                ? "PATTERN ACTIVE"
-                : "PERSONAL PATTERN STUDIO"}
-            </p>
+            <h1>Stay Up</h1>
+            <p style={{ color: "#ffffff" }}>{isOn ? "STAY UP" : "STAY ACTIVE"}</p>
           </div>
         </div>
 
