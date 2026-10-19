@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Power,
   SlidersHorizontal,
@@ -18,7 +19,14 @@ import {
   Settings,
   AlertCircle,
   ShieldCheck,
+  User as UserIcon,
+  LogOut,
+  LogIn,
+  Loader2,
+  Lock,
 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 type Pattern =
   | "diamond-grid"
@@ -50,6 +58,7 @@ const PATTERNS: { id: Pattern; label: string }[] = [
 ];
 
 export default function MouseJiggler() {
+  const router = useRouter();
   const [isOn, setIsOn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pattern, setPattern] = useState<Pattern>("diamond-grid");
@@ -76,6 +85,45 @@ export default function MouseJiggler() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const duration = `${5.5 - (speed / 100) * 5}s`;
+
+  // Customer session state
+  const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setCurrentUser(session.user);
+        setAuthChecking(false);
+      } else {
+        setAuthChecking(false);
+        router.replace("/login");
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setCurrentUser(session.user);
+        setAuthChecking(false);
+      } else {
+        setCurrentUser(null);
+        setAuthChecking(false);
+        router.replace("/login");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router]);
+
+  const handleCXSignOut = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    router.replace("/login");
+  };
 
   // Restore saved preferences from this browser on page load.
   useEffect(() => {
@@ -381,6 +429,38 @@ export default function MouseJiggler() {
       remainingSeconds
     ).padStart(2, "0")}`;
   };
+
+  // CX Auth Guard: Until and unless the customer is logged in, do not display the home page
+  if (authChecking || !currentUser) {
+    return (
+      <main className="cx-auth-guard">
+        <div className="cx-guard-card">
+          <div className="cx-guard-logo-wrap">
+            <Image
+              src="/apple-touch-icon.png"
+              alt="Stay Up Logo"
+              width={64}
+              height={64}
+              className="cx-guard-logo"
+              priority
+            />
+          </div>
+          <h2 className="cx-guard-title">Stay Up Optical Studio</h2>
+          <p className="cx-guard-desc">
+            Customer authentication required. Redirecting to sign in and registration...
+          </p>
+          <div className="cx-guard-loader">
+            <Loader2 size={26} className="cx-spin" />
+          </div>
+          <div style={{ marginTop: "18px" }}>
+            <Link href="/login" className="cx-btn-primary" style={{ textDecoration: "none" }}>
+              <span>Go to Sign In / Register</span>
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="fullscreen-app">
@@ -817,7 +897,43 @@ export default function MouseJiggler() {
                 </p>
               </section>
 
-              <div style={{ marginTop: "14px", marginBottom: "4px" }}>
+              <div style={{ marginTop: "14px", marginBottom: "4px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                {currentUser ? (
+                  <div className="drawer-user-card">
+                    <div className="drawer-user-meta">
+                      <div className="drawer-user-avatar">
+                        <UserIcon size={16} />
+                      </div>
+                      <div className="drawer-user-details">
+                        <span className="drawer-user-name">
+                          {currentUser.user_metadata?.name || currentUser.email?.split("@")[0]}
+                        </span>
+                        <span className="drawer-user-badge">
+                          <span className="drawer-badge-dot" /> Approved Customer
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCXSignOut}
+                      className="drawer-signout-action"
+                      title="Sign out of customer account"
+                    >
+                      <LogOut size={14} />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="drawer-cx-login-link"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <LogIn size={15} />
+                    <span>Customer Sign In / Access</span>
+                  </Link>
+                )}
+
                 <Link
                   href="/admin"
                   className="admin-drawer-link"
